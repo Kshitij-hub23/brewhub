@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# Environment variables - DO NOT commit
+Backend/.env
+brewhub_v3 (2)/.env
+
+# Node
+brewhub_v3 (2)/node_modules/
+brewhub_v3 (2)/.next/
+brewhub_v3 (2)/dist/
+brewhub_v3 (2)/.output/
+
+# OS
+.DS_Store
+Thumbs.db
