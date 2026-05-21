@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  Coffee, LogOut, Plus, Trash2, Download, ArrowLeft, RefreshCw, Pencil, X,
+  Coffee, LogOut, Plus, Trash2, Download, ArrowLeft, RefreshCw, Pencil, X, Mail,
 } from "lucide-react";
 import {
   api,
@@ -746,8 +746,8 @@ function OrdersTab() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function ExportTab() {
+  // ── Download section ──────────────────────────────────────────────────
   const [loading,  setLoading]  = useState(false);
-  const [file,     setFile]     = useState<string | null>(null);
   const [fromDate, setFromDate] = useState("");
   const [toDate,   setToDate]   = useState("");
 
@@ -755,40 +755,136 @@ function ExportTab() {
     setLoading(true);
     try {
       const result = await api.exportReport(fromDate || undefined, toDate || undefined);
-      setFile(result.file);
       toast.success(result.message || "Export created");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not export report");
     } finally { setLoading(false); }
   }
 
+  // ── Email section ─────────────────────────────────────────────────────
+  const { data: companies = [] } = useQuery({
+    queryKey:  ["companies"],
+    queryFn:   api.getCompanies,
+  });
+
+  const [emailFromDate,    setEmailFromDate]    = useState("");
+  const [emailToDate,      setEmailToDate]      = useState("");
+  const [selectedIds,      setSelectedIds]      = useState<number[]>([]);
+  const [emailLoading,     setEmailLoading]     = useState(false);
+
+  function toggleCompany(id: number) {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  }
+
+  function toggleAll() {
+    setSelectedIds(prev =>
+      prev.length === companies.length ? [] : companies.map((c: Company) => c.id)
+    );
+  }
+
+  async function sendEmails() {
+    if (selectedIds.length === 0) {
+      toast.error("Select at least one company.");
+      return;
+    }
+    setEmailLoading(true);
+    try {
+      const result = await api.sendExportEmails(
+        selectedIds,
+        emailFromDate || undefined,
+        emailToDate   || undefined,
+      );
+      toast.success(result.message);
+      if (result.failed?.length) {
+        toast.error("Some failed: " + result.failed.join(", "));
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not send emails");
+    } finally { setEmailLoading(false); }
+  }
+
   return (
-    <div className="max-w-xl rounded-xl border border-border bg-card p-6 space-y-4">
-      <div>
+    <div className="grid grid-cols-2 gap-6">
+
+      {/* ── Left card: Download ── */}
+      <div className="rounded-xl border border-border bg-card p-6 space-y-4">
         <h3 className="font-semibold text-primary text-lg flex items-center gap-2">
           <Download className="h-5 w-5" /> Export orders
         </h3>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label>From date</Label>
+            <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+          </div>
+          <div>
+            <Label>To date</Label>
+            <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+          </div>
+        </div>
+
+        <Button onClick={runExport} disabled={loading} className="w-full">
+          {loading ? "Exporting…" : "Download Excel report"}
+        </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <Label>From date</Label>
-          <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+      {/* ── Right card: Email ── */}
+      <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+        <h3 className="font-semibold text-primary text-lg flex items-center gap-2">
+          <Mail className="h-5 w-5" /> Send report by email
+        </h3>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label>From date</Label>
+            <Input type="date" value={emailFromDate} onChange={(e) => setEmailFromDate(e.target.value)} />
+          </div>
+          <div>
+            <Label>To date</Label>
+            <Input type="date" value={emailToDate} onChange={(e) => setEmailToDate(e.target.value)} />
+          </div>
         </div>
-        <div>
-          <Label>To date</Label>
-          <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+
+        {/* Company list */}
+        <div className="border border-border rounded-lg overflow-hidden">
+          {/* Select all row */}
+          <label className="flex items-center gap-3 px-4 py-2 bg-muted cursor-pointer border-b border-border">
+            <input
+              type="checkbox"
+              className="h-4 w-4 accent-primary"
+              checked={selectedIds.length === companies.length && companies.length > 0}
+              onChange={toggleAll}
+            />
+            <span className="text-sm font-medium text-muted-foreground">Select all</span>
+          </label>
+
+          {/* Company rows */}
+          <div className="max-h-48 overflow-y-auto divide-y divide-border">
+            {companies.length === 0 ? (
+              <p className="px-4 py-3 text-sm text-muted-foreground">No companies found</p>
+            ) : (
+              companies.map((company: Company) => (
+                <label key={company.id} className="flex items-center gap-3 px-4 py-2 cursor-pointer hover:bg-muted/50">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-primary"
+                    checked={selectedIds.includes(company.id)}
+                    onChange={() => toggleCompany(company.id)}
+                  />
+                  <span className="text-sm">{company.name}</span>
+                </label>
+              ))
+            )}
+          </div>
         </div>
+
+        <Button onClick={sendEmails} disabled={emailLoading || selectedIds.length === 0} className="w-full">
+          {emailLoading ? "Sending…" : `Send email${selectedIds.length > 1 ? "s" : ""}${selectedIds.length > 0 ? ` (${selectedIds.length})` : ""}`}
+        </Button>
       </div>
 
-      <Button onClick={runExport} disabled={loading} className="w-full">
-        {loading ? "Exporting…" : "Download Excel report"}
-      </Button>
-      {file && (
-        <p className="text-sm text-mocha">
-          Downloaded: <span className="font-mono">{file}</span>
-        </p>
-      )}
     </div>
   );
 }

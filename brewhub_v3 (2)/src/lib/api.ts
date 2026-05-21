@@ -226,6 +226,21 @@ export const api = {
     URL.revokeObjectURL(url);
     return { message: "Export downloaded successfully", file: "coffee_report.xlsx" };
   },
+
+  async sendExportEmails(companyIds: number[], fromDate?: string, toDate?: string) {
+    return request<{ message: string; sent: string[]; failed: string[] }>(
+      "/api/export/email",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          company_ids: companyIds,
+          from_date:   fromDate || null,
+          to_date:     toDate   || null,
+        }),
+      }
+    );
+  },
 };
 
 export function saveSelectedUser(user: User, company?: Company | null) {
