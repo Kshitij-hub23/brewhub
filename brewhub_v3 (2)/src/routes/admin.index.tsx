@@ -768,10 +768,6 @@ function ExportTab() {
         <h3 className="font-semibold text-primary text-lg flex items-center gap-2">
           <Download className="h-5 w-5" /> Export orders
         </h3>
-        <p className="text-sm text-muted-foreground mt-1">
-          Calls <span className="font-mono">GET /api/export/</span> on your FastAPI backend.
-          Leave dates blank to export everything.
-        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
